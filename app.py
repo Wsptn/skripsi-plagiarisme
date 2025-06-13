@@ -59,7 +59,7 @@ def buat_pdf(judul_baru, hasil, top_judul, top_persen):
     c.setFont("Helvetica", 12)
     c.drawString(50, y, "Hasil Prediksi:")
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(180, y, "Plagiat" if hasil else "Tidak Plagiat")
+    c.drawString(180, y, "Plagiat" if hasil == 1 else "Tidak Plagiat")
     y -= 40
 
     # Bungkus teks panjang agar tabel tidak melebar
