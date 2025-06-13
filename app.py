@@ -1,6 +1,7 @@
 import streamlit as st
 import joblib
 import numpy as np
+import time
 from sklearn.metrics.pairwise import cosine_similarity
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -10,21 +11,107 @@ from reportlab.platypus import Table, TableStyle
 import io
 import textwrap
 
-# === Load model dan data ===
+# === CSS Styling ===
+def set_custom_css():
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
+
+        html, body, [class*="css"] {
+            font-family: 'Poppins', sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+        }
+
+        .stApp {
+            background-color: #ffffff;
+            padding: 2rem;
+        }
+
+        h1, h2, h3, h4, h5, h6,
+        label, .stTextInput label,
+        .stMarkdown, .stExpanderContent, summary {
+            color: #000000 !important;
+        }
+
+        .stTextInput input {
+            border: 2px solid #0073e6;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 1rem;
+            color: #000000;
+        }
+
+        .stButton button {
+            background-color: #0073e6;
+            color: white;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            border: none;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .stButton button:hover {
+            background-color: #005bb5;
+        }
+
+        .stSpinner {
+            color: #000000 !important;
+        }
+
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .logo-container img {
+            width: 100px;
+            margin-top: 10px;
+        }
+
+        div.stAlert > div {
+            color: #000000 !important;
+        }
+
+        .stAlert[data-baseweb="notification"][role="alert"] {
+            background-color: #d1e7dd !important;
+            border-left: 6px solid #0f5132 !important;
+        }
+
+        .stAlert[data-baseweb="notification"].stError {
+            background-color: #f8d7da !important;
+            border-left: 6px solid #842029 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+# === Setup Halaman
+st.set_page_config(page_title="Deteksi Plagiarisme Judul Skripsi", layout="centered")
+set_custom_css()
+
+# === Logo
+st.markdown("""
+<div class="logo-container">
+    <img src="https://raw.githubusercontent.com/Wsptn/skripsi-plagiarisme/main/Logo-UNUJA.png">
+</div>
+""", unsafe_allow_html=True)
+
+st.title("🔍 Deteksi Plagiarisme Judul Skripsi")
+st.markdown("Masukkan judul skripsi yang ingin diperiksa:")
+
+# === Load model dan data
 model = joblib.load("random_forest_model.pkl")
 vectorizer = joblib.load("vectorizer.pkl")
 judul_lama = joblib.load("judul_lama.pkl")
 judul_lama_vec = vectorizer.transform(judul_lama)
 
-# === Konfigurasi Streamlit ===
-st.set_page_config(page_title="Deteksi Plagiarisme Judul Skripsi", layout="centered")
-st.title("🔍 Deteksi Plagiarisme Judul Skripsi")
-st.markdown("Masukkan judul skripsi yang ingin diperiksa:")
-
-# === Input pengguna ===
+# === Input pengguna
 judul_baru = st.text_input("✏️ Masukkan Judul Skripsi:")
 
-# === Fungsi PDF dengan header & wrap ===
+# === Fungsi PDF
 def buat_pdf(judul_baru, hasil, top_judul, top_persen):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
@@ -43,26 +130,30 @@ def buat_pdf(judul_baru, hasil, top_judul, top_persen):
     c.setFont("Helvetica", 12)
     c.drawString(130, height - 85, "Universitas Nurul Jadid")
 
-    # Judul dokumen
     y = height - 140
     c.setFont("Helvetica-Bold", 14)
     c.drawCentredString(width / 2, y, "LAPORAN DETEKSI PLAGIARISME JUDUL SKRIPSI")
     y -= 40
 
-    # Informasi Judul Dicek
+    # Judul Dicek
     c.setFont("Helvetica", 12)
     c.drawString(50, y, "Judul yang Dicek:")
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(180, y, judul_baru[:80])
-    y -= 25
 
+    wrapped_input = textwrap.wrap(judul_baru, 80)
+    for line in wrapped_input:
+        c.drawString(180, y, line)
+        y -= 15
+    y -= 30  # Tambah jarak sebelum hasil
+
+    # Hasil Prediksi
     c.setFont("Helvetica", 12)
     c.drawString(50, y, "Hasil Prediksi:")
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(180, y, "Plagiat" if hasil == 1 else "Tidak Plagiat")
-    y -= 40
+    c.drawString(180, y, "Plagiat" if hasil else "Tidak Plagiat")
+    y -= 60
 
-    # Bungkus teks panjang agar tabel tidak melebar
+    # Tabel Judul Lama
     wrapped_judul = []
     for j in top_judul:
         lines = textwrap.wrap(j, 60)
@@ -90,52 +181,48 @@ def buat_pdf(judul_baru, hasil, top_judul, top_persen):
     # Footer
     c.setFont("Helvetica-Oblique", 9)
     c.drawString(50, 30, "Developed by: Muhammad Babun Waseptian")
-
     c.showPage()
     c.save()
     buffer.seek(0)
     return buffer
 
-# === Logika utama aplikasi ===
+# === Proses Cek
 if st.button("🔎 Cek Plagiarisme"):
     if judul_baru.strip() == "":
         st.warning("⚠️ Judul tidak boleh kosong.")
     else:
-        # Vektorisasi dan kemiripan
-        judul_vec = vectorizer.transform([judul_baru])
-        kemiripan = cosine_similarity(judul_vec, judul_lama_vec)[0]
-        top_idx = np.argsort(kemiripan)[-10:][::-1]
-        top_judul = [judul_lama[i] for i in top_idx]
-        top_persen = [round(kemiripan[i]*100, 2) for i in top_idx]
+        with st.spinner("⏳ Sedang menganalisis judul skripsi... Mohon tunggu sebentar"):
+            time.sleep(1.5)
 
-        # Gunakan prediksi model + fallback rule
-        hasil_model = model.predict(judul_vec)[0]
-        hasil = hasil_model == 1 or top_persen[0] >= 40  # kombinasi AI + rule
+            judul_vec = vectorizer.transform([judul_baru])
+            kemiripan = cosine_similarity(judul_vec, judul_lama_vec)[0]
+            top_idx = np.argsort(kemiripan)[-10:][::-1]
+            top_judul = [judul_lama[i] for i in top_idx]
+            top_persen = [round(kemiripan[i]*100, 2) for i in top_idx]
 
-        # Tampilkan hasil
-        if hasil:
-            st.error("❌ Judul terdeteksi plagiarisme.")
-        else:
-            st.success("✅ Judul tidak mengandung plagiarisme.")
+            hasil_model = model.predict(judul_vec)[0]
+            hasil = hasil_model == 1 or top_persen[0] >= 40
 
-        # Tabel 10 judul mirip
-        st.markdown("### 📊 10 Judul Lama Paling Mirip")
-        st.dataframe({
-            "Judul Lama": top_judul,
-            "Kemiripan (%)": top_persen
-        }, use_container_width=True)
+            if hasil:
+                st.error("❌ Judul terdeteksi plagiarisme.")
+            else:
+                st.success("✅ Judul tidak mengandung plagiarisme.")
 
-        # Progress bar detail
-        with st.expander("📄 Detail Kemiripan"):
-            for i in range(10):
-                st.markdown(f"**{i+1}. {top_judul[i]}**")
-                st.progress(int(top_persen[i]))
+            st.markdown("### 📊 10 Judul Lama Paling Mirip")
+            st.dataframe({
+                "Judul Lama": top_judul,
+                "Kemiripan (%)": top_persen
+            }, use_container_width=True)
 
-        # Download PDF
-        pdf_file = buat_pdf(judul_baru, hasil, top_judul, top_persen)
-        st.download_button(
-            label="📥 Download Hasil PDF",
-            data=pdf_file,
-            file_name="hasil_deteksi_plagiarisme.pdf",
-            mime="application/pdf"
-        )
+            with st.expander("📄 Detail Kemiripan"):
+                for i in range(10):
+                    st.markdown(f"**{i+1}. {top_judul[i]}**")
+                    st.progress(int(top_persen[i]))
+
+            pdf_file = buat_pdf(judul_baru, hasil, top_judul, top_persen)
+            st.download_button(
+                label="📥 Download Hasil PDF",
+                data=pdf_file,
+                file_name="hasil_deteksi_plagiarisme.pdf",
+                mime="application/pdf"
+            )
