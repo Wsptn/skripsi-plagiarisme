@@ -39,7 +39,7 @@ def set_custom_css():
             border-radius: 8px;
             padding: 10px;
             font-size: 1rem;
-            color: #000000;
+            color: #ffffff;
         }
 
         .stButton button {
@@ -85,6 +85,46 @@ def set_custom_css():
             background-color: #f8d7da !important;
             border-left: 6px solid #842029 !important;
         }
+
+        /* Responsive for mobile */
+        @media only screen and (max-width: 768px) {
+            .stApp {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.4rem !important;
+            }
+
+            .stTextInput input,
+            .stButton button {
+                font-size: 0.95rem !important;
+            }
+
+            .logo-container img {
+                width: 70px;
+            }
+        }
+
+        /* Footer kanan bawah */
+        .footer {
+            position: fixed;
+            bottom: 10px;
+            right: 15px;
+            font-size: 0.8rem;
+            color: #666666;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .footer {
+                font-size: 0.7rem;
+                text-align: center;
+                left: 0;
+                right: 0;
+                bottom: 5px;
+            }
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -118,7 +158,6 @@ def buat_pdf(judul_baru, hasil, top_judul, top_persen):
     width, height = A4
     y = height - 50
 
-    # Logo dan Header
     try:
         logo = ImageReader("Logo-UNUJA.png")
         c.drawImage(logo, 50, height - 100, width=60, height=60, mask='auto')
@@ -139,21 +178,20 @@ def buat_pdf(judul_baru, hasil, top_judul, top_persen):
     c.setFont("Helvetica", 12)
     c.drawString(50, y, "Judul yang Dicek:")
     c.setFont("Helvetica-Bold", 12)
-
     wrapped_input = textwrap.wrap(judul_baru, 80)
     for line in wrapped_input:
         c.drawString(180, y, line)
         y -= 15
-    y -= 30  # Tambah jarak sebelum hasil
+    y -= 20
 
-    # Hasil Prediksi
+    # Hasil Prediksi (sejajar)
     c.setFont("Helvetica", 12)
     c.drawString(50, y, "Hasil Prediksi:")
     c.setFont("Helvetica-Bold", 12)
     c.drawString(180, y, "Plagiat" if hasil else "Tidak Plagiat")
-    y -= 60
+    y -= 55
 
-    # Tabel Judul Lama
+    # Tabel Kemiripan
     wrapped_judul = []
     for j in top_judul:
         lines = textwrap.wrap(j, 60)
@@ -178,7 +216,6 @@ def buat_pdf(judul_baru, hasil, top_judul, top_persen):
     table.wrapOn(c, width, height)
     table.drawOn(c, 50, y - (len(data) * 28))
 
-    # Footer
     c.setFont("Helvetica-Oblique", 9)
     c.drawString(50, 30, "Developed by: Muhammad Babun Waseptian")
     c.showPage()
@@ -226,3 +263,10 @@ if st.button("🔎 Cek Plagiarisme"):
                 file_name="hasil_deteksi_plagiarisme.pdf",
                 mime="application/pdf"
             )
+
+# === FOOTER
+st.markdown("""
+    <div class="footer">
+        Project by: Muhammad Babun Waseptian
+    </div>
+""", unsafe_allow_html=True)
