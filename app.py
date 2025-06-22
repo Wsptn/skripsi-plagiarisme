@@ -224,6 +224,9 @@ def buat_pdf(judul_baru, hasil, top_judul, top_persen):
     return buffer
 
 # === Proses Cek
+# ... (bagian atas tidak diubah)
+
+# === Proses Cek
 if st.button("🔎 Cek Plagiarisme"):
     if judul_baru.strip() == "":
         st.warning("⚠️ Judul tidak boleh kosong.")
@@ -254,7 +257,14 @@ if st.button("🔎 Cek Plagiarisme"):
             with st.expander("📄 Detail Kemiripan"):
                 for i in range(10):
                     st.markdown(f"**{i+1}. {top_judul[i]}**")
-                    st.progress(int(top_persen[i]))
+                    st.markdown(f"""
+                        <div style="position: relative; background-color: #e0e0e0; border-radius: 10px; height: 24px; margin-bottom: 16px;">
+                            <div style="width: {top_persen[i]}%; background-color: #0073e6; height: 100%; border-radius: 10px;"></div>
+                            <div style="position: absolute; top: 0; right: 10px; height: 100%; display: flex; align-items: center; font-size: 13px; font-weight: bold; color: black;">
+                                {top_persen[i]}%
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
 
             pdf_file = buat_pdf(judul_baru, hasil, top_judul, top_persen)
             st.download_button(
